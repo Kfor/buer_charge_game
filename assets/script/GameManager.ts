@@ -17,8 +17,13 @@ enum PlayerStatus {
     MoveRight,
 }
 
+enum PauseState {
+    Pause,
+    Start,
+}
+
 @ccclass
-export default class NewClass extends cc.Component {
+export default class GameManager extends cc.Component {
     
     @property(cc.Node)
     canvas: cc.Node;
@@ -43,12 +48,41 @@ export default class NewClass extends cc.Component {
     @property({type: cc.Prefab})
     public travelRightPlatformPrfb: cc.Prefab = null;
 
-    // LIFE-CYCLE CALLBACKS:
-
     private _canvasWidth = 0;
     private _isTouching = false;
     private _touchPos = new cc.Vec2();
     private _platformList : Array<cc.Node> = [];
+    private _platformDeltaY = 0;
+
+    // header
+
+    @property(cc.Node)
+    pauseNode: cc.Node = null;
+    @property(cc.SpriteFrame)
+    pauseSprite: cc.SpriteFrame = null;
+    @property(cc.SpriteFrame)
+    startSprite: cc.SpriteFrame = null;
+    public pauseState = PauseState.Start;
+    private _prevPauseState = PauseState.Start;
+    
+    @property(cc.Label)
+    scoreLabel: cc.Label = null;
+    private _score = 0;
+
+    @property(cc.Label)
+    timeLabel: cc.Label = null;
+    private gameTime = 0;
+
+    @property(cc.Node)
+    hpGroup: cc.Node = null;
+    @property(cc.SpriteFrame)
+    fullHeartSprite: cc.SpriteFrame = null;
+    @property(cc.SpriteFrame)
+    emptyHeartSprite: cc.SpriteFrame = null;
+    public hpPoint = 3;
+    private _prevHpPoint = 3;
+
+    // LIFE-CYCLE CALLBACKS:
     
 
     // onLoad () {}
@@ -134,6 +168,8 @@ export default class NewClass extends cc.Component {
 
     // update (dt) {}
     update (deltaTime: number) {
+        this.updatePlatformPos()
+        this.updateUI(deltaTime)
         if (this._isTouching) {
             if (this._touchPos.x > this._canvasWidth/2) {
                 this.playerCtrl.touchMove(this.playerSpeed * deltaTime)
@@ -146,60 +182,84 @@ export default class NewClass extends cc.Component {
             this.playerCtrl.touchChangeUiStatus(PlayerStatus.Breathing)
         }
     }
-    
-    // onCollisionEnter (other, self) {
-    //     this.node.color = cc.Color.RED;
 
-    //     this.touchingNumber ++;
-        
-    //     // 1st step 
-    //     // get pre aabb, go back before collision
-    //     var otherAabb = other.world.aabb;
-    //     var otherPreAabb = other.world.preAabb.clone();
+    updatePlatformPos() {
+        this._platformList.forEach(platform => {
+            let newPos = new cc.Vec2()
+            cc.Vec2.add(newPos, platform.getPosition(), new cc.Vec2(0, this.playerCtrl._platformDeltaY))
+            platform.setPosition(newPos)
 
-    //     var selfAabb = self.world.aabb;
-    //     var selfPreAabb = self.world.preAabb.clone();
+            this.playerCtrl._platformDeltaY = 0;
+        })
+    }
 
-    //     // 2nd step
-    //     // forward x-axis, check whether collision on x-axis
-    //     selfPreAabb.x = selfAabb.x;
-    //     otherPreAabb.x = otherAabb.x;
+    updateUI(deltaTime: number) {
+        if (this._prevHpPoint !== this.hpPoint) {
+            this.updateUIHpPoint()
+            this.hpPoint = this._prevHpPoint
+        }
+        this.updateUITime(deltaTime)
+        this.updateUIScore()
+        if (this._prevPauseState !== this.pauseState) {
+            this.updateUIPause()
+            this.pauseState = this._prevPauseState
+        }
+    }
 
-    //     if (cc.Intersection.rectRect(selfPreAabb, otherPreAabb)) {
-    //         if (this.speed.x < 0 && (selfPreAabb.xMax > otherPreAabb.xMax)) {
-    //             this.node.x = otherPreAabb.xMax - this.node.parent.x;
-    //             this.collisionX = -1;
-    //         }
-    //         else if (this.speed.x > 0 && (selfPreAabb.xMin < otherPreAabb.xMin)) {
-    //             this.node.x = otherPreAabb.xMin - selfPreAabb.width - this.node.parent.x;
-    //             this.collisionX = 1;
-    //         }
+    updateUIHpPoint() {
+        if (this.hpPoint !== this._prevHpPoint) {
+            const hpSpriteNodes = this.hpGroup.children
+            hpSpriteNodes.forEach((node, i) => {
+                if (i < this.hpPoint) {
+                    node.getComponent(cc.Sprite).spriteFrame = this.fullHeartSprite;
+                } else {
+                    node.getComponent(cc.Sprite).spriteFrame = this.emptyHeartSprite;
+                }
+            })
+            this._prevHpPoint = this.hpPoint;
+        }
+    }
 
-    //         this.speed.x = 0;
-    //         other.touchingX = true;
-    //         return;
-    //     }
+    updateUITime(deltaTime: number) {
+        this.gameTime += deltaTime;
+        const minute = Math.floor(this.gameTime / 60);
+        const second = Math.floor(this.gameTime - minute*60);
+        this.timeLabel.string = `${Appendzero(minute)}:${Appendzero(second)}`
 
-    //     // 3rd step
-    //     // forward y-axis, check whether collision on y-axis
-    //     selfPreAabb.y = selfAabb.y;
-    //     otherPreAabb.y = otherAabb.y;
+        function Appendzero(obj) {
+            if(obj<10) return "0" +""+ obj;
+            else return obj;
+        }
+    }
 
-    //     if (cc.Intersection.rectRect(selfPreAabb, otherPreAabb)) {
-    //         if (this.speed.y < 0 && (selfPreAabb.yMax > otherPreAabb.yMax)) {
-    //             this.node.y = otherPreAabb.yMax - this.node.parent.y;
-    //             this.jumping = false;
-    //             this.collisionY = -1;
-    //         }
-    //         else if (this.speed.y > 0 && (selfPreAabb.yMin < otherPreAabb.yMin)) {
-    //             this.node.y = otherPreAabb.yMin - selfPreAabb.height - this.node.parent.y;
-    //             this.collisionY = 1;
-    //         }
-            
-    //         this.speed.y = 0;
-    //         this._lastSpeedY = 0;
-    //         other.touchingY = true;
-    //     }    
-        
-    // },
+    updateUIScore() {
+        this.scoreLabel.string = `${this._score}`
+    }
+
+    updateUIPause() {
+        if (this.pauseState === PauseState.Pause) {
+            this.pauseNode.getComponent(cc.Sprite).spriteFrame = this.startSprite;
+        } else if (this.pauseState === PauseState.Start) {
+            this.pauseNode.getComponent(cc.Sprite).spriteFrame = this.pauseSprite;
+        }
+    }
+
+    addScore(count:number = 1) {
+        this._score += count;
+    }
+
+    plusHP(count:number = 1) {
+        if (this.hpPoint < 3) this.hpPoint++;
+        // 可能有播放加血音效
+    }
+
+    minusHP(count:number = 1) {
+        this.hpPoint--;
+        if (this.hpPoint === 0) this.endGame()
+        // 可能有播放减血音效
+    }
+
+    endGame() {
+
+    }
 }
