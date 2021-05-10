@@ -33,6 +33,11 @@ export default class PlayerControllerClass extends cc.Component {
     @property({type:cc.Enum(PlayerStatus)})
     uiStatus: PlayerStatus = PlayerStatus.Breathing;
 
+    @property(cc.Node)
+    leftWallNode: cc.Node = null;
+    @property(cc.Node)
+    rightWallNode: cc.Node = null;
+
     // @property({type: GameManager})
     // public gameManager: GameManager = null;
 
@@ -45,6 +50,13 @@ export default class PlayerControllerClass extends cc.Component {
     private _aSpeed = 200;
     private _maxSpeed = 600;
     public _platformDeltaY = 0;
+
+    private _collisionY = false;
+
+    private _leftXTouched = false;
+    private _leftXTouchObj: cc.BoxCollider = null;
+    private _rightXTouched = false;
+    private _rightXTouchObj: cc.BoxCollider = null;
 
     start () {
         // cc.log('started')
@@ -117,10 +129,12 @@ export default class PlayerControllerClass extends cc.Component {
     }
 
     updateNodePos(deltaTime: number) {
-        this._speed = Math.min(this._aSpeed*deltaTime + this._speed, this._maxSpeed)
-        // this._deltaPos.y -= this._speed*deltaTime
-        // 改成触发其他平台的加X位置事件
-        this._platformDeltaY += this._speed*deltaTime
+        if (!this._collisionY) {
+            this._speed = Math.min(this._aSpeed*deltaTime + this._speed, this._maxSpeed)
+            // this._deltaPos.y -= this._speed*deltaTime
+            // 改成触发其他平台的加X位置事件
+            this._platformDeltaY += this._speed*deltaTime
+        }
 
         // 判断是否碰到墙，更新后能碰到的话不继续移动
 
@@ -131,6 +145,8 @@ export default class PlayerControllerClass extends cc.Component {
     }
 
     touchMove(distance: number) {
+        if (this._leftXTouched && distance < 0) return
+        if (this._rightXTouched && distance > 0) return
         this._deltaPos.x += distance;
     }
 
@@ -138,9 +154,55 @@ export default class PlayerControllerClass extends cc.Component {
         this.uiStatus = uiStatus
     }
 
-    onCollisionEnter (other, self) {
+    onCollisionEnter (other: cc.BoxCollider, self: cc.BoxCollider) {
         cc.log('enter')
-        cc.log(other, self)
+
+        // 1st step 
+        // get pre aabb, go back before collision
+        const otherAabb = other.world.aabb;
+        const otherPreAabb = other.world.preAabb.clone();
+        const selfAabb = self.world.aabb;
+        const selfPreAabb = self.world.preAabb.clone();
+
+        const threshold = 20;
+        // 2nd step
+        // check whether collision on x-axis
+        selfPreAabb.x = selfAabb.x;
+        otherPreAabb.x = otherAabb.x;
+        if (other === this.leftWallNode.getComponent(cc.BoxCollider)) {
+            this._leftXTouched = true;
+            this._leftXTouchObj = other;
+            this._deltaPos.x += otherPreAabb.xMax - selfPreAabb.xMin;
+            return;
+        }
+        if (selfPreAabb.xMin > otherPreAabb.xMax - threshold) {
+            this._leftXTouched = true;
+            this._leftXTouchObj = other;
+            // this._deltaPos.x += otherPreAabb.xMax - selfPreAabb.xMin;
+            return;
+        }
+
+        if (other === this.rightWallNode.getComponent(cc.BoxCollider)) {
+            this._rightXTouched = true;
+            this._rightXTouchObj = other;
+            this._deltaPos.x += otherPreAabb.xMin - selfPreAabb.xMax;
+            return;
+        }
+        if (selfPreAabb.xMax < otherPreAabb.xMin + threshold) {
+            this._rightXTouched = true;
+            this._rightXTouchObj = other;
+            // this._deltaPos.x += otherPreAabb.xMin - selfPreAabb.xMax;
+            return;
+        }
+
+
+        // 3rd step
+        // check whether collision on y-axis
+        this._collisionY = true
+        this._speed = 0
+        // if (cc.Intersection.rectRect(selfPreAabb, otherPreAabb) && selfPreAabb.yMin < otherPreAabb.yMax) {
+        //     this._platformDeltaY += selfPreAabb.yMin - otherPreAabb.yMax
+        // }
 
         // 触发加生命事件，通知gamemanager，destroy生命node
         
@@ -153,15 +215,23 @@ export default class PlayerControllerClass extends cc.Component {
 
         // hurt platform，触发减少生命事件，y速度变成0，位置微调或不调，改状态为碰撞到
     }
-    onCollisionStay (other, self) {
-        cc.log('stay')
-        cc.log(other, self)
-    }
-    onCollisionExit (other, self) {
-        cc.log('exit')
-        cc.log(other, self)
+    onCollisionStay (other: cc.BoxCollider, self: cc.BoxCollider) {
 
-        // 判断是否改状态为不碰撞到
+    }
+    onCollisionExit (other: cc.BoxCollider, self: cc.BoxCollider) {
+        cc.log('exit')
+        if (this._leftXTouched && this._leftXTouchObj === other) {
+            this._leftXTouched = false;
+            this._leftXTouchObj = null;
+            return;
+        }
+        if (this._rightXTouched && this._rightXTouchObj === other) {
+            this._rightXTouched = false;
+            this._rightXTouchObj = null;
+            return;
+        }
+        this._collisionY = false
+
     }
     
     // onCollisionEnter (other, self) {

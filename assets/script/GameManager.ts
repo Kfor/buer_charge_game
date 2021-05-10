@@ -9,6 +9,8 @@ const {ccclass, property} = cc._decorator;
 
 import PlayerController from "./PlayerController";
 
+cc.game.setFrameRate(100)
+
 enum PlayerStatus {
     Breathing,
     Falling,
@@ -22,20 +24,24 @@ enum PauseState {
     Start,
 }
 
+interface Platform extends cc.Node {
+    countScore: boolean;
+}
+
 @ccclass
 export default class GameManager extends cc.Component {
     
     @property(cc.Node)
-    canvas: cc.Node;
+    canvas: cc.Node = null;
 
     @property(cc.Node)
-    player: cc.Node;
+    player: cc.Node = null;
 
     @property({type: PlayerController})
     public playerCtrl: PlayerController = null;
 
-    @property(Number)
-    playerSpeed: number = 400;
+    @property(cc.Float)
+    playerSpeed = 400;
     
     @property({type: cc.Prefab})
     public basicPlatformPrfb: cc.Prefab = null;
@@ -51,8 +57,7 @@ export default class GameManager extends cc.Component {
     private _canvasWidth = 0;
     private _isTouching = false;
     private _touchPos = new cc.Vec2();
-    private _platformList : Array<cc.Node> = [];
-    private _platformDeltaY = 0;
+    private _platformList : Array<Platform> = [];
 
     // header
 
@@ -97,8 +102,8 @@ export default class GameManager extends cc.Component {
     subsystemInit() {
         const manager = cc.director.getCollisionManager();
         manager.enabled = true;
-        manager.enabledDebugDraw = true;
-        manager.enabledDrawBoundingBox = true;
+        // manager.enabledDebugDraw = true;
+        // manager.enabledDrawBoundingBox = true;
     }
 
     eventRegister() {
@@ -110,14 +115,14 @@ export default class GameManager extends cc.Component {
     }
 
     dataInit() {
-        this._canvasWidth = this.canvas?.getContentSize().width
-        this.player.setPosition(0, this.canvas?.getContentSize().height/4)
+        this._canvasWidth = this.canvas.getContentSize().width
+        this.player.setPosition(0, this.canvas.getContentSize().height/4)
     }
 
     generatePlatform() {
-        const initPlatform = cc.instantiate(this.basicPlatformPrfb)
+        const initPlatform = cc.instantiate(this.basicPlatformPrfb) as Platform
         this.canvas.addChild(initPlatform)
-        initPlatform.setPosition(0, this.canvas?.getContentSize().height/4 - 90)
+        initPlatform.setPosition(0, this.canvas.getContentSize().height/4 - 90)
         this._platformList.push(initPlatform)
     }
 
@@ -168,7 +173,9 @@ export default class GameManager extends cc.Component {
 
     // update (dt) {}
     update (deltaTime: number) {
+        this.updatePlatforms()
         this.updatePlatformPos()
+        this.updateScore()
         this.updateUI(deltaTime)
         if (this._isTouching) {
             if (this._touchPos.x > this._canvasWidth/2) {
@@ -183,14 +190,59 @@ export default class GameManager extends cc.Component {
         }
     }
 
+    updatePlatforms() {
+        while (
+            this._platformList.length > 0
+            && this._platformList[0].y > this.canvas.getContentSize().height/2 + 50
+        ) {
+            // debugger
+            const node = this._platformList[0]
+            this._platformList.shift()
+            this.canvas.removeChild(node) // 不知道是否需要这一句
+            setTimeout(function () {
+                node.destroy();
+            }.bind(this), 100);
+        }
+        while (
+            this._platformList.length > 0 
+            && this._platformList[this._platformList.length-1].y > -this.canvas.getContentSize().height/2
+        ) {
+            // debugger
+            const lastPos = this._platformList[this._platformList.length-1].y
+            this.generateNewPlatform(lastPos)
+        }
+        // cc.log('last y pos')
+        // cc.log(this._platformList[this._platformList.length-1].y)
+    }
+
+    generateNewPlatform(lastPos: number) {
+        const platform = cc.instantiate(this.basicPlatformPrfb) as Platform
+        const minX = platform.width/2 - this.canvas.getContentSize().width/2
+        const maxX = this.canvas.getContentSize().width/2 - platform.width/2
+        const realX = Math.random() * (maxX - minX) + minX
+        const realY = lastPos - (Math.random() * (350 - 250) + 250)
+        this.canvas.addChild(platform)
+        platform.setPosition(realX, realY)
+        this._platformList.push(platform)
+    }
+
     updatePlatformPos() {
         this._platformList.forEach(platform => {
             let newPos = new cc.Vec2()
             cc.Vec2.add(newPos, platform.getPosition(), new cc.Vec2(0, this.playerCtrl._platformDeltaY))
             platform.setPosition(newPos)
-
-            this.playerCtrl._platformDeltaY = 0;
         })
+        this.playerCtrl._platformDeltaY = 0;
+    }
+
+    updateScore() {
+        this._platformList.forEach(platform => {
+            if (!platform.countScore && platform.position.y > this.player.position.y) {
+                platform.countScore = true;
+                this.addScore()
+            }
+        })
+        
     }
 
     updateUI(deltaTime: number) {
