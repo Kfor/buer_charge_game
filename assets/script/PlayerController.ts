@@ -15,6 +15,7 @@ enum PlayerStatus {
     Falled,
     MoveLeft,
     MoveRight,
+    Hurt,
 }
 
 @ccclass
@@ -46,7 +47,8 @@ export default class PlayerControllerClass extends cc.Component {
     private _deltaPos: cc.Vec2 = new cc.Vec2();
     private _isContactWall = false;
     private _isContactPlatform = false;
-    private _speed = 0;
+    private _initSpeed = 100;
+    private _speed = this._initSpeed;
     private _aSpeed = 200;
     private _maxSpeed = 600;
     public _platformDeltaY = 0;
@@ -57,6 +59,15 @@ export default class PlayerControllerClass extends cc.Component {
     private _leftXTouchObj: cc.BoxCollider = null;
     private _rightXTouched = false;
     private _rightXTouchObj: cc.BoxCollider = null;
+    
+    public hpPoint = 3;
+
+
+    private _isHurt = false;
+    private _isFalled = false;
+    private _isTraveled = false;
+    private _travelLeft = false;
+    private _travelRight = false;
 
     start () {
         // cc.log('started')
@@ -96,6 +107,8 @@ export default class PlayerControllerClass extends cc.Component {
 
     // update (dt) {}
     update (deltaTime: number) {
+        // cc.log(this.uiStatus)
+        if (this._speed > this._initSpeed) this.uiStatus = PlayerStatus.Falling
         this.updateUiStatus()
         this.updateNodePos(deltaTime)
     }
@@ -118,6 +131,9 @@ export default class PlayerControllerClass extends cc.Component {
                     break;
                 case PlayerStatus.MoveRight:
                     anim.play('moveRight');
+                    break;
+                case PlayerStatus.Hurt:
+                    anim.play('hurt');
                     break;
             
                 default:
@@ -145,17 +161,32 @@ export default class PlayerControllerClass extends cc.Component {
     }
 
     touchMove(distance: number) {
+        if (this._isFalled || this._isHurt) {
+            return
+        }
+        
         if (this._leftXTouched && distance < 0) return
         if (this._rightXTouched && distance > 0) return
         this._deltaPos.x += distance;
     }
 
     touchChangeUiStatus(uiStatus: PlayerStatus) {
+        if (this._isFalled || this._isHurt) {
+            return
+        }
+
         this.uiStatus = uiStatus
     }
 
     onCollisionEnter (other: cc.BoxCollider, self: cc.BoxCollider) {
-        cc.log('enter')
+        if (other.node.group === 'Heart') {
+            this.plusHP()
+            this.node.emit('deleteFallPlatform', other.node)
+            return;
+        }
+
+
+
 
         // 1st step 
         // get pre aabb, go back before collision
@@ -164,8 +195,46 @@ export default class PlayerControllerClass extends cc.Component {
         const selfAabb = self.world.aabb;
         const selfPreAabb = self.world.preAabb.clone();
 
-        const threshold = 20;
+        const threshold = 10;
+
         // 2nd step
+        // check whether collision on y-axis
+        // if (cc.Intersection.rectRect(selfPreAabb, otherPreAabb) && (selfPreAabb.yMin + 10) > otherPreAabb.yMax) {
+        if ((selfPreAabb.yMin + threshold) > otherPreAabb.yMax) {
+            this._collisionY = true
+            this._speed = 0
+
+            const otherNode = other.node as any
+            if (otherNode._name === 'HurtPlatform') {
+                this.minusHP()
+                this._isHurt = true;
+                this.uiStatus = PlayerStatus.Hurt;
+                this.scheduleOnce(() => {
+                    cc.log('hurt')
+                    this._isHurt = false;
+                    this.uiStatus = PlayerStatus.Breathing;
+                    this.node.emit('deleteFallPlatform', otherNode);
+                }, 0.5)
+            } else if (otherNode._name === 'FallPlatform') {
+                this._isFalled = true;
+                this.uiStatus = PlayerStatus.Falled;
+                this.scheduleOnce(() => {
+                    cc.log('fall')
+                    this._isFalled = false;
+                    this.uiStatus = PlayerStatus.Breathing;
+                    this.node.emit('deleteFallPlatform', otherNode);
+                }, 0.5)
+            } else if (otherNode._name === 'TravelLeftPlatform') {
+                this._isTraveled = true;
+                this._travelLeft = true;
+            } else if (otherNode._name === 'TravelRightPlatform') {
+                this._isTraveled = true;
+                this._travelRight = true;
+            }
+            // this._platformDeltaY += selfPreAabb.yMin - otherPreAabb.yMax
+            return
+        }
+        // 3rd step
         // check whether collision on x-axis
         selfPreAabb.x = selfAabb.x;
         otherPreAabb.x = otherAabb.x;
@@ -175,7 +244,8 @@ export default class PlayerControllerClass extends cc.Component {
             this._deltaPos.x += otherPreAabb.xMax - selfPreAabb.xMin;
             return;
         }
-        if (selfPreAabb.xMin > otherPreAabb.xMax - threshold) {
+        // if (selfPreAabb.xMin > otherPreAabb.xMax - threshold) {
+        if (selfPreAabb.x > otherPreAabb.x) {
             this._leftXTouched = true;
             this._leftXTouchObj = other;
             // this._deltaPos.x += otherPreAabb.xMax - selfPreAabb.xMin;
@@ -188,38 +258,23 @@ export default class PlayerControllerClass extends cc.Component {
             this._deltaPos.x += otherPreAabb.xMin - selfPreAabb.xMax;
             return;
         }
-        if (selfPreAabb.xMax < otherPreAabb.xMin + threshold) {
+        // if (selfPreAabb.xMax < otherPreAabb.xMin + threshold) {
+        if (selfPreAabb.x < otherPreAabb.x) {
             this._rightXTouched = true;
             this._rightXTouchObj = other;
             // this._deltaPos.x += otherPreAabb.xMin - selfPreAabb.xMax;
             return;
         }
-
-
-        // 3rd step
-        // check whether collision on y-axis
-        this._collisionY = true
-        this._speed = 0
-        // if (cc.Intersection.rectRect(selfPreAabb, otherPreAabb) && selfPreAabb.yMin < otherPreAabb.yMax) {
-        //     this._platformDeltaY += selfPreAabb.yMin - otherPreAabb.yMax
-        // }
-
-        // 触发加生命事件，通知gamemanager，destroy生命node
         
-        
-        // basic platform，y速度变成0，位置微调或不调，改状态为碰撞到
-
-        // move传送带platform，y速度变成0，改状态为碰撞到且不能左右移动（另一个move状态），在更新位置时根据这个状态改x速度
-
-        // fall platform，y速度变成0，触发音效200ms，改状态为碰撞到且不能左右移动500ms（另一个fall状态），定时500ms后将这个状态改回来，销毁fallplatform，其他状态也记得调整
-
-        // hurt platform，触发减少生命事件，y速度变成0，位置微调或不调，改状态为碰撞到
     }
     onCollisionStay (other: cc.BoxCollider, self: cc.BoxCollider) {
 
     }
     onCollisionExit (other: cc.BoxCollider, self: cc.BoxCollider) {
-        cc.log('exit')
+        if (other.node.group === 'Heart') {
+            return;
+        }
+
         if (this._leftXTouched && this._leftXTouchObj === other) {
             this._leftXTouched = false;
             this._leftXTouchObj = null;
@@ -231,62 +286,17 @@ export default class PlayerControllerClass extends cc.Component {
             return;
         }
         this._collisionY = false
+        this._speed = this._initSpeed
 
     }
-    
-    // onCollisionEnter (other, self) {
-    //     this.node.color = cc.Color.RED;
 
-    //     this.touchingNumber ++;
-        
-    //     // 1st step 
-    //     // get pre aabb, go back before collision
-    //     var otherAabb = other.world.aabb;
-    //     var otherPreAabb = other.world.preAabb.clone();
+    plusHP(count:number = 1) {
+        if (this.hpPoint < 3) this.hpPoint++;
+        // 可能有播放加血音效
+    }
 
-    //     var selfAabb = self.world.aabb;
-    //     var selfPreAabb = self.world.preAabb.clone();
-
-    //     // 2nd step
-    //     // forward x-axis, check whether collision on x-axis
-    //     selfPreAabb.x = selfAabb.x;
-    //     otherPreAabb.x = otherAabb.x;
-
-    //     if (cc.Intersection.rectRect(selfPreAabb, otherPreAabb)) {
-    //         if (this.speed.x < 0 && (selfPreAabb.xMax > otherPreAabb.xMax)) {
-    //             this.node.x = otherPreAabb.xMax - this.node.parent.x;
-    //             this.collisionX = -1;
-    //         }
-    //         else if (this.speed.x > 0 && (selfPreAabb.xMin < otherPreAabb.xMin)) {
-    //             this.node.x = otherPreAabb.xMin - selfPreAabb.width - this.node.parent.x;
-    //             this.collisionX = 1;
-    //         }
-
-    //         this.speed.x = 0;
-    //         other.touchingX = true;
-    //         return;
-    //     }
-
-    //     // 3rd step
-    //     // forward y-axis, check whether collision on y-axis
-    //     selfPreAabb.y = selfAabb.y;
-    //     otherPreAabb.y = otherAabb.y;
-
-    //     if (cc.Intersection.rectRect(selfPreAabb, otherPreAabb)) {
-    //         if (this.speed.y < 0 && (selfPreAabb.yMax > otherPreAabb.yMax)) {
-    //             this.node.y = otherPreAabb.yMax - this.node.parent.y;
-    //             this.jumping = false;
-    //             this.collisionY = -1;
-    //         }
-    //         else if (this.speed.y > 0 && (selfPreAabb.yMin < otherPreAabb.yMin)) {
-    //             this.node.y = otherPreAabb.yMin - selfPreAabb.height - this.node.parent.y;
-    //             this.collisionY = 1;
-    //         }
-            
-    //         this.speed.y = 0;
-    //         this._lastSpeedY = 0;
-    //         other.touchingY = true;
-    //     }    
-        
-    // },
+    minusHP(count:number = 1) {
+        this.hpPoint--;
+        // 可能有播放减血音效
+    }
 }

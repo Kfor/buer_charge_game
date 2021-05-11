@@ -9,7 +9,8 @@ const {ccclass, property} = cc._decorator;
 
 import PlayerController from "./PlayerController";
 
-cc.game.setFrameRate(100)
+// TODO
+// cc.game.setFrameRate(100)
 
 enum PlayerStatus {
     Breathing,
@@ -35,6 +36,9 @@ export default class GameManager extends cc.Component {
     canvas: cc.Node = null;
 
     @property(cc.Node)
+    platformContainer: cc.Node = null;
+
+    @property(cc.Node)
     player: cc.Node = null;
 
     @property({type: PlayerController})
@@ -53,6 +57,8 @@ export default class GameManager extends cc.Component {
     public travelLeftPlatformPrfb: cc.Prefab = null;
     @property({type: cc.Prefab})
     public travelRightPlatformPrfb: cc.Prefab = null;
+    @property({type: cc.Prefab})
+    public heartPrfb: cc.Prefab = null;
 
     private _canvasWidth = 0;
     private _isTouching = false;
@@ -84,8 +90,7 @@ export default class GameManager extends cc.Component {
     fullHeartSprite: cc.SpriteFrame = null;
     @property(cc.SpriteFrame)
     emptyHeartSprite: cc.SpriteFrame = null;
-    public hpPoint = 3;
-    private _prevHpPoint = 3;
+    private _playerHpPoint = 3;
 
     // LIFE-CYCLE CALLBACKS:
     
@@ -112,6 +117,19 @@ export default class GameManager extends cc.Component {
         this.canvas.on(cc.Node.EventType.TOUCH_START, this.onTouchStart, this)
         this.canvas.on(cc.Node.EventType.TOUCH_MOVE, this.onTouchMove, this)
         this.canvas.on(cc.Node.EventType.TOUCH_END, this.onTouchEnd, this)
+
+        this.playerCtrl.node.on('deleteFallPlatform', (platformNode: Platform) => {
+            for (let i = 0; i < this._platformList.length; i++) {
+                if (this._platformList[i] === platformNode) {
+                    this._platformList.splice(i, 1)
+                    break;
+                }
+            }
+            this.platformContainer.removeChild(platformNode) // 不知道是否需要这一句
+            setTimeout(function () {
+                platformNode.destroy();
+            }.bind(this), 0);
+        })
     }
 
     dataInit() {
@@ -121,8 +139,8 @@ export default class GameManager extends cc.Component {
 
     generatePlatform() {
         const initPlatform = cc.instantiate(this.basicPlatformPrfb) as Platform
-        this.canvas.addChild(initPlatform)
-        initPlatform.setPosition(0, this.canvas.getContentSize().height/4 - 90)
+        this.platformContainer.addChild(initPlatform)
+        initPlatform.setPosition(0, this.canvas.getContentSize().height/4 - 190)
         this._platformList.push(initPlatform)
     }
 
@@ -198,7 +216,7 @@ export default class GameManager extends cc.Component {
             // debugger
             const node = this._platformList[0]
             this._platformList.shift()
-            this.canvas.removeChild(node) // 不知道是否需要这一句
+            this.platformContainer.removeChild(node) // 不知道是否需要这一句
             setTimeout(function () {
                 node.destroy();
             }.bind(this), 100);
@@ -216,14 +234,42 @@ export default class GameManager extends cc.Component {
     }
 
     generateNewPlatform(lastPos: number) {
-        const platform = cc.instantiate(this.basicPlatformPrfb) as Platform
+        let platformKind: cc.Prefab
+        const seed1 = Math.random()
+        if (seed1 < 0.3) {
+            platformKind = this.basicPlatformPrfb
+        } else if (seed1 < 0.5) {
+            platformKind = this.fallPlatformPrfb
+        } else if (seed1 < 0.7) {
+            platformKind = this.hurtPlatformPrfb
+        } else if (seed1 < 0.85) {
+            platformKind = this.travelLeftPlatformPrfb
+        } else {
+            platformKind = this.travelRightPlatformPrfb
+        }
+        const platform = cc.instantiate(platformKind) as Platform
         const minX = platform.width/2 - this.canvas.getContentSize().width/2
         const maxX = this.canvas.getContentSize().width/2 - platform.width/2
-        const realX = Math.random() * (maxX - minX) + minX
-        const realY = lastPos - (Math.random() * (350 - 250) + 250)
-        this.canvas.addChild(platform)
+        let realX
+        const seed = Math.random()
+        if (seed < 0.15) {
+            realX = minX
+        } else if (seed > 0.85) {
+            realX = maxX
+        } else {
+            realX = (seed * (0.75-0.25) + 0.25) * (maxX - minX) + minX
+        }
+        const realY = lastPos - (Math.random() * (450 - 350) + 350)
+        this.platformContainer.addChild(platform)
         platform.setPosition(realX, realY)
         this._platformList.push(platform)
+        if (Math.random() < 0.07 && platformKind !== this.hurtPlatformPrfb) {
+            cc.log('create heart')
+            const heart = cc.instantiate(this.heartPrfb) as Platform
+            this.platformContainer.addChild(heart)
+            heart.setPosition(realX, realY + 80)
+            this._platformList.push(heart)
+        }
     }
 
     updatePlatformPos() {
@@ -246,29 +292,24 @@ export default class GameManager extends cc.Component {
     }
 
     updateUI(deltaTime: number) {
-        if (this._prevHpPoint !== this.hpPoint) {
-            this.updateUIHpPoint()
-            this.hpPoint = this._prevHpPoint
-        }
+        this.updateUIHpPoint()
         this.updateUITime(deltaTime)
         this.updateUIScore()
-        if (this._prevPauseState !== this.pauseState) {
-            this.updateUIPause()
-            this.pauseState = this._prevPauseState
-        }
+        this.updateUIPause()
     }
 
     updateUIHpPoint() {
-        if (this.hpPoint !== this._prevHpPoint) {
+        if (this._playerHpPoint !== this.playerCtrl.hpPoint) {
+            this._playerHpPoint = this.playerCtrl.hpPoint
             const hpSpriteNodes = this.hpGroup.children
             hpSpriteNodes.forEach((node, i) => {
-                if (i < this.hpPoint) {
+                if (i < this._playerHpPoint) {
                     node.getComponent(cc.Sprite).spriteFrame = this.fullHeartSprite;
                 } else {
                     node.getComponent(cc.Sprite).spriteFrame = this.emptyHeartSprite;
                 }
             })
-            this._prevHpPoint = this.hpPoint;
+            if (this._playerHpPoint === 0) this.endGame()
         }
     }
 
@@ -289,26 +330,18 @@ export default class GameManager extends cc.Component {
     }
 
     updateUIPause() {
-        if (this.pauseState === PauseState.Pause) {
-            this.pauseNode.getComponent(cc.Sprite).spriteFrame = this.startSprite;
-        } else if (this.pauseState === PauseState.Start) {
-            this.pauseNode.getComponent(cc.Sprite).spriteFrame = this.pauseSprite;
+        if (this._prevPauseState !== this.pauseState) {
+            if (this.pauseState === PauseState.Pause) {
+                this.pauseNode.getComponent(cc.Sprite).spriteFrame = this.startSprite;
+            } else if (this.pauseState === PauseState.Start) {
+                this.pauseNode.getComponent(cc.Sprite).spriteFrame = this.pauseSprite;
+            }
+            this.pauseState = this._prevPauseState
         }
     }
 
     addScore(count:number = 1) {
         this._score += count;
-    }
-
-    plusHP(count:number = 1) {
-        if (this.hpPoint < 3) this.hpPoint++;
-        // 可能有播放加血音效
-    }
-
-    minusHP(count:number = 1) {
-        this.hpPoint--;
-        if (this.hpPoint === 0) this.endGame()
-        // 可能有播放减血音效
     }
 
     endGame() {
