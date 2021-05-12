@@ -107,8 +107,8 @@ export default class GameManager extends cc.Component {
     subsystemInit() {
         const manager = cc.director.getCollisionManager();
         manager.enabled = true;
-        // manager.enabledDebugDraw = true;
-        // manager.enabledDrawBoundingBox = true;
+        manager.enabledDebugDraw = true;
+        manager.enabledDrawBoundingBox = true;
     }
 
     eventRegister() {
@@ -129,6 +129,7 @@ export default class GameManager extends cc.Component {
             setTimeout(function () {
                 platformNode.destroy();
             }.bind(this), 0);
+            if ((platformNode as any)._name !== 'Heart') this.addScore()
         })
     }
 
@@ -252,12 +253,12 @@ export default class GameManager extends cc.Component {
         const maxX = this.canvas.getContentSize().width/2 - platform.width/2
         let realX
         const seed = Math.random()
-        if (seed < 0.15) {
+        if (seed < 0.15 &&　platformKind !== this.travelLeftPlatformPrfb) {
             realX = minX
-        } else if (seed > 0.85) {
+        } else if (seed > 0.85 &&　platformKind !== this.travelRightPlatformPrfb) {
             realX = maxX
         } else {
-            realX = (seed * (0.75-0.25) + 0.25) * (maxX - minX) + minX
+            realX = (seed * (0.72-0.28) + 0.28) * (maxX - minX) + minX
         }
         const realY = lastPos - (Math.random() * (450 - 350) + 350)
         this.platformContainer.addChild(platform)

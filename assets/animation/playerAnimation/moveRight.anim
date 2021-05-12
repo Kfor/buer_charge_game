@@ -3,7 +3,7 @@
   "_name": "moveRight",
   "_objFlags": 0,
   "_native": "",
-  "_duration": 0.35,
+  "_duration": 0.5166666666666667,
   "sample": 60,
   "speed": 1,
   "wrapMode": 2,
@@ -18,13 +18,13 @@
             }
           },
           {
-            "frame": 0.16666666666666666,
+            "frame": 0.25,
             "value": {
               "__uuid__": "1bccb1d4-4960-4e4d-a46e-890929f96f5b"
             }
           },
           {
-            "frame": 0.3333333333333333,
+            "frame": 0.5,
             "value": {
               "__uuid__": "7be44bb2-b75f-42fb-81d5-314f57cec039"
             }

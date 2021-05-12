@@ -3,7 +3,7 @@
   "_name": "falled",
   "_objFlags": 0,
   "_native": "",
-  "_duration": 0.016666666666666666,
+  "_duration": 0.35,
   "sample": 60,
   "speed": 1,
   "wrapMode": 1,
@@ -13,6 +13,18 @@
         "spriteFrame": [
           {
             "frame": 0,
+            "value": {
+              "__uuid__": "c28d0b4d-87f1-44fb-8a17-cea122719056"
+            }
+          },
+          {
+            "frame": 0.16666666666666666,
+            "value": {
+              "__uuid__": "d47e3257-84ab-4b89-a860-583bad23da64"
+            }
+          },
+          {
+            "frame": 0.3333333333333333,
             "value": {
               "__uuid__": "d47e3257-84ab-4b89-a860-583bad23da64"
             }

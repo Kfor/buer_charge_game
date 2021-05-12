@@ -3,16 +3,28 @@
   "_name": "falling",
   "_objFlags": 0,
   "_native": "",
-  "_duration": 0.016666666666666666,
+  "_duration": 0.5166666666666667,
   "sample": 60,
   "speed": 1,
-  "wrapMode": 1,
+  "wrapMode": 2,
   "curveData": {
     "comps": {
       "cc.Sprite": {
         "spriteFrame": [
           {
             "frame": 0,
+            "value": {
+              "__uuid__": "00abcc4c-7eaf-4496-a8eb-b045ed76563e"
+            }
+          },
+          {
+            "frame": 0.25,
+            "value": {
+              "__uuid__": "c28d0b4d-87f1-44fb-8a17-cea122719056"
+            }
+          },
+          {
+            "frame": 0.5,
             "value": {
               "__uuid__": "00abcc4c-7eaf-4496-a8eb-b045ed76563e"
             }

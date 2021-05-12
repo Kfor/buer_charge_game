@@ -50,7 +50,7 @@ export default class PlayerControllerClass extends cc.Component {
     private _initSpeed = 100;
     private _speed = this._initSpeed;
     private _aSpeed = 200;
-    private _maxSpeed = 600;
+    private _maxSpeed = 1000;
     public _platformDeltaY = 0;
 
     private _collisionY = false;
@@ -65,6 +65,7 @@ export default class PlayerControllerClass extends cc.Component {
 
     private _isHurt = false;
     private _isFalled = false;
+    private _isBasicFalled = false;
     private _isTraveled = false;
     private _travelLeft = false;
     private _travelRight = false;
@@ -76,34 +77,34 @@ export default class PlayerControllerClass extends cc.Component {
     }
 
     // for test
-    onKeyDown(event: any) {
-        // cc.log('onKeyDown')
-        // cc.log(this.uiStatus)
-        let nextStatus: PlayerStatus = null;
-        switch(event.keyCode) {
-            case cc.macro.KEY.a:
-                nextStatus = PlayerStatus.Breathing;
-                break;
-            case cc.macro.KEY.s:
-                nextStatus = PlayerStatus.Falling;
-                break;
-            case cc.macro.KEY.d:
-                nextStatus = PlayerStatus.Falled;
-                break;
-            case cc.macro.KEY.f:
-                nextStatus = PlayerStatus.MoveLeft;
-                break;
-            case cc.macro.KEY.g:
-                nextStatus = PlayerStatus.MoveRight;
-                break;
-            default:
-                break;
-        }
-        if (nextStatus !== null && nextStatus !== this.uiStatus) {
-            this._statusChange = true;
-            this.uiStatus = nextStatus;
-        }
-    }
+    // onKeyDown(event: any) {
+    //     // cc.log('onKeyDown')
+    //     // cc.log(this.uiStatus)
+    //     let nextStatus: PlayerStatus = null;
+    //     switch(event.keyCode) {
+    //         case cc.macro.KEY.a:
+    //             nextStatus = PlayerStatus.Breathing;
+    //             break;
+    //         case cc.macro.KEY.s:
+    //             nextStatus = PlayerStatus.Falling;
+    //             break;
+    //         case cc.macro.KEY.d:
+    //             nextStatus = PlayerStatus.Falled;
+    //             break;
+    //         case cc.macro.KEY.f:
+    //             nextStatus = PlayerStatus.MoveLeft;
+    //             break;
+    //         case cc.macro.KEY.g:
+    //             nextStatus = PlayerStatus.MoveRight;
+    //             break;
+    //         default:
+    //             break;
+    //     }
+    //     if (nextStatus !== null && nextStatus !== this.uiStatus) {
+    //         this._statusChange = true;
+    //         this.uiStatus = nextStatus;
+    //     }
+    // }
 
     // update (dt) {}
     update (deltaTime: number) {
@@ -154,6 +155,16 @@ export default class PlayerControllerClass extends cc.Component {
 
         // 判断是否碰到墙，更新后能碰到的话不继续移动
 
+        // 如果在传送带上则加一段距离
+        if (this._isTraveled) {
+            const playerSpeed = 500;
+            if (this._travelLeft) {
+                this._deltaPos.x -= playerSpeed * deltaTime
+            } else if (this._travelRight) {
+                this._deltaPos.x += playerSpeed * deltaTime
+            }
+        }
+
         let newPos = new cc.Vec2()
         cc.Vec2.add(newPos, this.node.getPosition(), this._deltaPos)
         this.node.setPosition(newPos)
@@ -161,7 +172,7 @@ export default class PlayerControllerClass extends cc.Component {
     }
 
     touchMove(distance: number) {
-        if (this._isFalled || this._isHurt) {
+        if (this._isFalled || this._isHurt || this._isTraveled) {
             return
         }
         
@@ -171,7 +182,10 @@ export default class PlayerControllerClass extends cc.Component {
     }
 
     touchChangeUiStatus(uiStatus: PlayerStatus) {
-        if (this._isFalled || this._isHurt) {
+        if (this._isFalled || this._isHurt || this._isTraveled) {
+            return
+        }
+        if (uiStatus === PlayerStatus.Breathing && this._isBasicFalled) {
             return
         }
 
@@ -210,26 +224,37 @@ export default class PlayerControllerClass extends cc.Component {
                 this._isHurt = true;
                 this.uiStatus = PlayerStatus.Hurt;
                 this.scheduleOnce(() => {
-                    cc.log('hurt')
-                    this._isHurt = false;
                     this.uiStatus = PlayerStatus.Breathing;
                     this.node.emit('deleteFallPlatform', otherNode);
                 }, 0.5)
+                this.scheduleOnce(() => {
+                    this._isHurt = false;
+                }, 0.6)
             } else if (otherNode._name === 'FallPlatform') {
                 this._isFalled = true;
                 this.uiStatus = PlayerStatus.Falled;
                 this.scheduleOnce(() => {
-                    cc.log('fall')
-                    this._isFalled = false;
                     this.uiStatus = PlayerStatus.Breathing;
                     this.node.emit('deleteFallPlatform', otherNode);
                 }, 0.5)
+                this.scheduleOnce(() => {
+                    this._isFalled = false;
+                }, 0.6)
             } else if (otherNode._name === 'TravelLeftPlatform') {
                 this._isTraveled = true;
                 this._travelLeft = true;
+                this.uiStatus = PlayerStatus.MoveLeft;
             } else if (otherNode._name === 'TravelRightPlatform') {
                 this._isTraveled = true;
                 this._travelRight = true;
+                this.uiStatus = PlayerStatus.MoveRight;
+            } else if (otherNode._name === 'BasicPlatform') {
+                // basic platform
+                this._isBasicFalled = true;
+                this.uiStatus = PlayerStatus.Falled;
+                this.scheduleOnce(() => {
+                    this._isBasicFalled = false;
+                }, 0.6)
             }
             // this._platformDeltaY += selfPreAabb.yMin - otherPreAabb.yMax
             return
@@ -273,6 +298,13 @@ export default class PlayerControllerClass extends cc.Component {
     onCollisionExit (other: cc.BoxCollider, self: cc.BoxCollider) {
         if (other.node.group === 'Heart') {
             return;
+        }
+
+        const otherNode = other.node as any
+        if (otherNode._name === 'TravelLeftPlatform' || otherNode._name === 'TravelRightPlatform') {
+            this._isTraveled = false;
+            this._travelLeft = false;
+            this._travelRight = false;
         }
 
         if (this._leftXTouched && this._leftXTouchObj === other) {

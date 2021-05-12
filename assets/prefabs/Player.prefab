@@ -48,8 +48,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 30,
-      "height": 30
+      "width": 64,
+      "height": 44
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -160,23 +160,8 @@
     },
     "_enabled": true,
     "uiStatus": 0,
-    "_id": ""
-  },
-  {
-    "__type__": "cc.CircleCollider",
-    "_name": "",
-    "_objFlags": 0,
-    "node": {
-      "__id__": 1
-    },
-    "_enabled": true,
-    "tag": 0,
-    "_offset": {
-      "__type__": "cc.Vec2",
-      "x": 0,
-      "y": 0
-    },
-    "_radius": 18,
+    "leftWallNode": null,
+    "rightWallNode": null,
     "_id": ""
   },
   {
@@ -202,6 +187,27 @@
     "enabledContactListener": true,
     "bullet": true,
     "awakeOnLoad": true,
+    "_id": ""
+  },
+  {
+    "__type__": "cc.BoxCollider",
+    "_name": "",
+    "_objFlags": 0,
+    "node": {
+      "__id__": 1
+    },
+    "_enabled": true,
+    "tag": 0,
+    "_offset": {
+      "__type__": "cc.Vec2",
+      "x": 0,
+      "y": 0
+    },
+    "_size": {
+      "__type__": "cc.Size",
+      "width": 64,
+      "height": 44
+    },
     "_id": ""
   },
   {
