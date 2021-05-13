@@ -92,13 +92,44 @@ export default class GameManager extends cc.Component {
     emptyHeartSprite: cc.SpriteFrame = null;
     private _playerHpPoint = 3;
 
+    @property(cc.Node)
+    pauseContainerNode: cc.Node = null;
+    @property(cc.Node)
+    resumeContainerNode: cc.Node = null;
+    @property(cc.Node)
+    endContainerNode: cc.Node = null;
+
+    private _gameFinalSucceed = false;
+    private _goalScore = 124;
+
+    @property(cc.Node)
+    finishContainerNode: cc.Node = null;
+    @property(cc.Node)
+    failContainerNode: cc.Node = null;
+    @property(cc.Node)
+    successContainerNode: cc.Node = null;
+    @property(cc.Label)
+    successScoreLabel: cc.Label = null;
+    @property(cc.Node)
+    uploadScoreBtnNode: cc.Node = null;
+    
+    @property(cc.Node)
+    footerReplayNode: cc.Node = null;
+    @property(cc.Node)
+    footershareNode: cc.Node = null;
+    @property(cc.Node)
+    footerBackNode: cc.Node = null;
+    @property(cc.Node)
+    footerStoreNode: cc.Node = null;
+
     // LIFE-CYCLE CALLBACKS:
     
 
     // onLoad () {}
 
-    start () {
+    onLoad () {
         this.subsystemInit()
+        this.eleInit()
         this.eventRegister()
         this.dataInit()
         this.generatePlatform()
@@ -110,6 +141,11 @@ export default class GameManager extends cc.Component {
         manager.enabledDebugDraw = true;
         manager.enabledDrawBoundingBox = true;
     }
+    
+    eleInit() {
+        this.pauseContainerNode.active = false;
+        this.finishContainerNode.active = false;
+    }
 
     eventRegister() {
         // cc.systemEvent.on(cc.SystemEvent.EventType.DEVICEMOTION, this.onKeyDown, this)
@@ -117,6 +153,41 @@ export default class GameManager extends cc.Component {
         this.canvas.on(cc.Node.EventType.TOUCH_START, this.onTouchStart, this)
         this.canvas.on(cc.Node.EventType.TOUCH_MOVE, this.onTouchMove, this)
         this.canvas.on(cc.Node.EventType.TOUCH_END, this.onTouchEnd, this)
+
+        this.pauseNode.on('click', () => {
+            if (!cc.director.isPaused()) {
+                this.pauseContainerNode.active = true;
+                cc.director.pause();
+            }
+        })
+        this.resumeContainerNode.on('click', () => {
+            if (cc.director.isPaused()) {
+                this.pauseContainerNode.active = false;
+                cc.director.resume();
+            }
+        })
+        this.endContainerNode.on('click', () => {
+            this.endGame();
+        })
+
+        this.footerReplayNode.on('click', () => {
+            cc.director.resume();
+            cc.director.loadScene("main");
+        })
+        this.footershareNode.on('click', () => {
+            if (!this._gameFinalSucceed) {
+                this.playerCtrl.plusHP();
+                this.finishContainerNode.active = false;
+                cc.director.resume();
+            }
+        })
+        this.footerBackNode.on('click', () => {
+            cc.director.resume();
+            cc.director.loadScene("begin");
+        })
+        this.footerStoreNode.on('click', () => {
+            // 商城回调
+        })
 
         this.playerCtrl.node.on('deleteFallPlatform', (platformNode: Platform) => {
             for (let i = 0; i < this._platformList.length; i++) {
@@ -343,9 +414,22 @@ export default class GameManager extends cc.Component {
 
     addScore(count:number = 1) {
         this._score += count;
+        if (this._score >= this._goalScore) this.endGame()
     }
 
     endGame() {
-
+        if (this._playerHpPoint === 0) {
+            this._gameFinalSucceed = false;
+            this.failContainerNode.active = true;
+            this.successContainerNode.active = false;
+        } else if (this._score === this._goalScore) {
+            this._gameFinalSucceed = true;
+            this.failContainerNode.active = false;
+            this.successContainerNode.active = true;
+            const second = Math.floor(this.gameTime);
+            this.successScoreLabel.string = `${second} s`
+        }
+        this.finishContainerNode.active = true;
+        cc.director.pause();
     }
 }
