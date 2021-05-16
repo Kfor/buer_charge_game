@@ -100,10 +100,12 @@ export default class GameManager extends cc.Component {
     endContainerNode: cc.Node = null;
 
     private _gameFinalSucceed = false;
-    private _goalScore = 124;
+    private _goalScore = 12;
 
     @property(cc.Node)
     finishContainerNode: cc.Node = null;
+    @property(cc.Node)
+    scoreFrameNode: cc.Node = null;
     @property(cc.Node)
     failContainerNode: cc.Node = null;
     @property(cc.Node)
@@ -112,6 +114,13 @@ export default class GameManager extends cc.Component {
     successScoreLabel: cc.Label = null;
     @property(cc.Node)
     uploadScoreBtnNode: cc.Node = null;
+    
+    @property(cc.Node)
+    rankListContainer: cc.Node = null;
+    @property(cc.Node)
+    rankListView: cc.Node = null;
+    @property({type: cc.Prefab})
+    public listItemPrefab: cc.Prefab = null;
     
     @property(cc.Node)
     footerReplayNode: cc.Node = null;
@@ -168,6 +177,11 @@ export default class GameManager extends cc.Component {
         })
         this.endContainerNode.on('click', () => {
             this.endGame();
+        })
+
+        
+        this.uploadScoreBtnNode.on('click', () => {
+            this.uploadScore();
         })
 
         this.footerReplayNode.on('click', () => {
@@ -430,6 +444,78 @@ export default class GameManager extends cc.Component {
             this.successScoreLabel.string = `${second} s`
         }
         this.finishContainerNode.active = true;
+        this.rankListContainer.active = false;
         cc.director.pause();
+    }
+
+    uploadScore() {
+        // will uploadScore
+        'to upload score'
+        // const gameTime = this.gameTime
+        // const windowAny = window as any
+        // if (windowAny.wx && windowAny.cloud) {
+        //     const db = windowAny.cloud.database()
+        //     db.collection('gamerank').add({
+        //     data: {
+        //         nickName: '11 lizipei',
+        //         costTime: 71,
+        //         avatarUrl: '11 example avatarUrl'
+        //     },
+        //     success: res => {
+        //         cc.log('success add')
+        //     },
+        //     fail: err => {
+        //         cc.log('err add')
+        //     }
+        //     })
+        // } else {
+        //     cc.log('no wx cloud')
+        // }
+        
+        // after uploaded succeeded, show ranklist
+        this.scoreFrameNode.active = false;
+        this.createRankList()
+        this.rankListContainer.active = true;
+    }
+
+    createRankList() {
+        // 之后换成查排名前几的数据和这次得分排名
+        const datas = [{
+            rank: 1,
+            avatarUrl: '',
+            nickname: 'xxx',
+            time: 59,
+        }, {
+            rank: 2,
+            avatarUrl: '',
+            nickname: 'xxx2',
+            time: 80,
+        }, {
+            rank: 3,
+            avatarUrl: '',
+            nickname: 'xxx3',
+            time: 99,
+        }, {
+            rank: 4,
+            avatarUrl: '',
+            nickname: 'xxx4',
+            time: 129,
+        },]
+        this.rankListView.removeAllChildren()
+        let posY = this.rankListView.height/2
+        for (let i = 0; i < datas.length; i++) {
+            const listItem = cc.instantiate(this.listItemPrefab)
+            this.rankListView.addChild(listItem)
+            listItem.setPosition(listItem.getPosition().x, posY - listItem.height/2)
+            posY -= listItem.height + 4
+            listItem.getChildByName("rank").getComponent(cc.Label).string = `${datas[i].rank}`
+            listItem.getChildByName("name").getComponent(cc.Label).string = `${datas[i].nickname}`
+            listItem.getChildByName("time").getComponent(cc.Label).string = `${datas[i].time}`
+            // 加载微信头像
+            cc.loader.load({url: datas[i].avatarUrl+'?file=a.png', type: 'png'}, function (err, tex) {      
+                listItem.getChildByName("avatar").getComponent(cc.Sprite).spriteFrame=new cc.SpriteFrame(tex)
+            });
+        }
+        
     }
 }

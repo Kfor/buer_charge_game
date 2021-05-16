@@ -1,6 +1,18 @@
 {
 	"game": {
-		"name": "未知游戏",
-		"appid": "UNKNOW"
-	}
+		"name": "发电小游戏",
+		"appid": "610014959",
+		"cid": "0"
+	},
+	"configs": [
+		{
+			"appid": "610014959",
+			"services": [
+				{
+					"service_id": "272",
+					"enable": false
+				}
+			]
+		}
+	]
 }
