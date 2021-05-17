@@ -100,7 +100,7 @@ export default class GameManager extends cc.Component {
     endContainerNode: cc.Node = null;
 
     private _gameFinalSucceed = false;
-    private _goalScore = 12;
+    private _goalScore = 124;
 
     @property(cc.Node)
     finishContainerNode: cc.Node = null;
@@ -176,6 +176,7 @@ export default class GameManager extends cc.Component {
             }
         })
         this.endContainerNode.on('click', () => {
+            this.pauseContainerNode.active = false;
             this.endGame();
         })
 
@@ -442,6 +443,11 @@ export default class GameManager extends cc.Component {
             this.successContainerNode.active = true;
             const second = Math.floor(this.gameTime);
             this.successScoreLabel.string = `${second} s`
+        } else {
+            // 暂停直接结束
+            this._gameFinalSucceed = false;
+            this.failContainerNode.active = true;
+            this.successContainerNode.active = false;
         }
         this.finishContainerNode.active = true;
         this.rankListContainer.active = false;
